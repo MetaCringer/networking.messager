@@ -15,61 +15,76 @@ import java.util.Base64;
 import java.util.Base64.Decoder;
 import java.util.Base64.Encoder;
 
+import javax.management.InvalidAttributeValueException;
+
 import edu.khai.core.packet.Packet;
-import edu.khai.server.Packets;
+import edu.khai.core.packet.Packets;
 
 public abstract class Connection implements Runnable{
 	private Socket s;
 	protected Thread inputThread;
 	private DataInputStream in;
 	private DataOutputStream out;
-	public Connection(String ip, int port) throws UnknownHostException, IOException {
-		s = new Socket();
-		s.connect(new InetSocketAddress(ip, port));
-		
+	public Connection(Socket s) throws IOException {
+		this.s = s;
 		in = new DataInputStream(s.getInputStream());
 		out = new DataOutputStream(s.getOutputStream());
 		inputThread = new Thread(this);
+		inputThread.start();
+	}
+	public Connection(String ip, int port) throws UnknownHostException, IOException {
+		s = new Socket();
+		s.connect(new InetSocketAddress(ip, port));
+		in = new DataInputStream(s.getInputStream());
+		out = new DataOutputStream(s.getOutputStream());
+		inputThread = new Thread(this);
+		inputThread.start();
 	}
 	protected void Send(Packet p) {
+		System.out.println("Send");
 		Encoder en = Base64.getEncoder();
 		String[] args = p.toArgs();
 		for(int i = 0; i < args.length; ++i) {
 			args[i] = en.encodeToString(args[i].getBytes());
 		}
-		String message = String.join(".", args);
+		String message = String.join("-", args);
 		byte[] data = message.getBytes();
 		try {
 			out.writeInt(data.length);
 			out.writeInt(p.getType());
 			out.write(data);
+			System.out.println("sended "+out.size()+" bytes" + new String(data));
 			out.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 	private String[] Receive(String message) {
-		String[] result = message.split(".");
+		System.out.println("Convert: " +message);
+		String[] result = message.split("-");
+		System.out.println("частей: " +result.length);
 		Decoder de = Base64.getDecoder();
 		for(int i = 0; i<result.length; ++i) {
 			result[i]=new String(de.decode(result[i].getBytes()));
 		}
+		System.out.println("Result: " + String.join("-", result));
 		return result;
 	}
 	
-	protected void close() throws IOException {
+	public void close() throws IOException {
 		s.close();
 		inputThread.interrupt();
+		//inputThread.stop();
 	}
 	
 	public abstract void send(Packet message);
 	protected abstract void recieve(Packet message);
 	protected abstract void errorHandler(Exception e);
+	public abstract void Close();
 	protected void DefaultErrorHandler(Exception e){
 		e.printStackTrace();
-		this.inputThread.interrupt();
-		this.inputThread = new Thread(this);
-		this.inputThread.start();
+		System.out.print(e.getMessage());
+		this.Close();
 	}
 	
 	@Override
@@ -77,7 +92,7 @@ public abstract class Connection implements Runnable{
 		byte[] buffer;
 		try {
 			while(!Thread.interrupted()) {
-				if(in.available()>8) {
+				if(in.available()>=8) {
 					buffer = new byte[in.readInt()];
 					int type = in.readInt();
 					int readed=0;
@@ -85,19 +100,22 @@ public abstract class Connection implements Runnable{
 						readed = in.read(buffer, i, buffer.length-i);
 						readed = (readed<0)?0:readed;
 					}
+					System.out.println(buffer.length+" "+ type+" " + new String(buffer));
 					Packets[] v = Packets.values();
 					if(type>=v.length) continue;
-					recieve(v[type].MakePacket(buffer));
+					Packet p = v[type].MakePacket(Receive(new String(buffer)));
+					if(p == null) {
+						System.out.println("packet is null");
+						continue;
+					}
+					recieve(p);
 				}
 				
 			}
 			
-		} catch (IOException | NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (IOException | NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | InvalidAttributeValueException e) {
 			errorHandler(e);
 		}
-		
-		
-		
 	}
 	
 	public boolean isLegalForInputPacket(Packet p) {
@@ -105,6 +123,5 @@ public abstract class Connection implements Runnable{
 			return true;
 		return false;
 	}
-	
 	
 }

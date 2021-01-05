@@ -29,5 +29,12 @@ public class ClientConnection extends Connection{
 		DefaultErrorHandler(e);
 		
 	}
+
+	@Override
+	public void Close() {
+		try {
+			close();
+		} catch (IOException e) {	}
+	}
 	
 }

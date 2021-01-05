@@ -1,7 +1,8 @@
 package edu.khai.core.packet;
 
+import javax.management.InvalidAttributeValueException;
+
 import edu.khai.core.Connection;
-import edu.khai.server.Packets;
 
 public abstract class Packet {
 	/**
@@ -9,23 +10,27 @@ public abstract class Packet {
 	 * @param InputData
 	 */
 	byte[] in;
-	public Packet(byte[] InputData){
+	public Packet(String[] InputData) throws InvalidAttributeValueException {
 		
 	}
+	
+	//public static abstract Packet makePacket();
+	
 	/**
 	 * for out
 	 */
-	protected Packet() {
+	public Packet() {
 		
 	}
+	public abstract void init(String[] data)  throws InvalidAttributeValueException;
 	
 	public abstract String[] toArgs();
 	
-	protected abstract void handle();
+	protected abstract void handle(Connection c);
 	
 	public void Handle(Connection c) {
 		if(c.isLegalForInputPacket(this))
-			handle();
+			handle(c);
 	}
 	
 	public int getType() {

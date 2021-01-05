@@ -1,6 +1,7 @@
 package edu.khai.client;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
@@ -33,6 +34,7 @@ public class GUI extends JFrame {
 	JPanel JPanelInput = new JPanel(new BorderLayout());
 	JButton JBsend = new JButton("Send");
 	JTextField JFInput = new JTextField();
+	DConnect authGUI;
 	
 	public GUI(){
 		this.setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -73,23 +75,29 @@ public class GUI extends JFrame {
 		content.add(Jterminal,BorderLayout.CENTER);
 		content.add(JPanelInput,BorderLayout.SOUTH);
 		
-		new DConnect();
+		authGUI = new DConnect();
 		
+	}
+	
+	public void println(String s) {
+		Jterminal.append(s);
+		Jterminal.append("\n");
 	}
 	
 	private void send() {
 		String message = JFInput.getText();
 		JFInput.setText("");
+		Client.send(message);
 		
 	}
 	
 	public class DConnect extends JDialog{
-		JLabel Lip=new JLabel("IP адресс"),Lport =new JLabel("Порт");
-		JTextField ip=new JTextField(),port=new JTextField();
+		JLabel Lip=new JLabel("IP адресс"),Lport =new JLabel("Порт"),Lname = new JLabel("Имя"),Lerror=new JLabel();
+		JTextField ip=new JTextField("localhost"),port=new JTextField("8001"), name=new JTextField("annonymous");
 		JButton ok=new JButton("Connect");
 		public DConnect() {
 			super(GUI.this,true);
-			this.setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+			this.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 			
 			this.setSize(300, 200);
 			setLocationRelativeTo(null);
@@ -97,32 +105,48 @@ public class GUI extends JFrame {
 			JPanel p = new JPanel();
 			p.setLayout(new GridBagLayout());
 			
-
+			Lerror.setForeground(Color.RED);
+			
 			GridBagConstraints c = new GridBagConstraints();
 			c.fill = GridBagConstraints.HORIZONTAL;
 			c.weightx=100;
 			c.weighty=100;
 			
 			
-			p.add(Lip,correct(c,1,1,1,1));
-			p.add(ip,correct(c,2,1,2,1));
+			
+			p.add(Lname,correct(c,0,0,1,1));
+			p.add(name,correct(c,1,0,3,1));
 
-			p.add(Lport,correct(c,1,2,1,1));
-			p.add(port,correct(c,2,2,2,1));
+			p.add(Lip,correct(c,0,1,1,1));
+			p.add(ip,correct(c,1,1,3,1));
+			
+			p.add(Lport,correct(c,0,2,1,1));
+			p.add(port,correct(c,1,2,3,1));
 
-			p.add(ok,correct(c,3,3,1,1));
+			p.add(Lerror,correct(c,0,3,1,1));
+			
+			p.add(ok,correct(c,2,3,1,1));
+			
+			
 			ok.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
+					try {
+						int p = Integer.parseInt(port.getText());
+						if(!Client.connect(name.getText(), ip.getText(), p)) {
+							Lerror.setText("Не удалось соединиться");
+							return;
+						}
+						DConnect.this.setVisible(false);
+						GUI.this.setVisible(true);
+					} catch(NumberFormatException ex) {
+						Lerror.setText("Не правильные порт или ip");
+					}
 					
 					
-					
-					DConnect.this.dispose();
-					GUI.this.setVisible(true);
 				}
 			});
 			this.getContentPane().add(p);
-			//this.pack();
 			this.setVisible(true);
 		}
 		private GridBagConstraints correct(GridBagConstraints context, int x,int y,int wx,int wy) {
